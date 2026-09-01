@@ -7,8 +7,8 @@ from flask_mail import Message
 from sqlalchemy import func
 from .auth import current_user, roles_required
 from .extensions import db, mail, oauth
-from .models import (Answer, Aspect, Attempt, Course, CriticalAlert, Enrollment,
-                     FormAttempt, Item, User)
+from .models import (Answer, Aspect, Attempt, Course, CourseQuestionnaire,
+                     CriticalAlert, Enrollment, FormAttempt, Item, User)
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
@@ -241,6 +241,20 @@ def admin_courses():
 def admin_course(course_id):
     course = Course.query.get_or_404(course_id)
     if request.method == "DELETE":
+        if request.args.get("permanent", "false").lower() == "true":
+            if course.is_active:
+                return error("Primero debes eliminar el curso", 409)
+            has_history = (
+                Enrollment.query.filter_by(course_id=course.id).first()
+                or Attempt.query.filter_by(course_id=course.id).first()
+                or FormAttempt.query.filter_by(course_id=course.id).first()
+            )
+            if has_history:
+                return error("No se puede borrar definitivamente: el curso tiene matrículas o respuestas asociadas", 409)
+            CourseQuestionnaire.query.filter_by(course_id=course.id).delete()
+            db.session.delete(course)
+            db.session.commit()
+            return "", 204
         course.is_active = False; db.session.commit(); return "", 204
     for key in ("name", "academic_year", "level", "tutor_id", "is_active"):
         if key in payload(): setattr(course, key, payload()[key])

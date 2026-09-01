@@ -25,6 +25,7 @@ export class ApiService {
   createCourse(data:Partial<Course>) { return this.http.post<Course>('/api/admin/courses',data); }
   updateCourse(id:number,data:Partial<Course>) { return this.http.put<Course>(`/api/admin/courses/${id}`,data); }
   deleteCourse(id:number) { return this.http.delete(`/api/admin/courses/${id}`); }
+  permanentlyDeleteCourse(id:number) { return this.http.delete(`/api/admin/courses/${id}?permanent=true`); }
   users() { return this.http.get<User[]>('/api/admin/users'); }
   createUser(data:Partial<User>&{password?:string}) { return this.http.post<User>('/api/admin/users',data); }
   updateUser(id:number,data:Partial<User>) { return this.http.put<User>(`/api/admin/users/${id}`,data); }

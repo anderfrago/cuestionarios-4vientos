@@ -65,6 +65,11 @@ def test_admin_user_crud_and_safe_form_deletion(client):
                                  json={"is_active": True})
     assert restored_course.status_code == 200
     assert restored_course.get_json()["is_active"] is True
+    assert client.delete(f'/api/admin/courses/{course["id"]}', headers=auth(admin)).status_code == 204
+    assert client.delete(f'/api/admin/courses/{course["id"]}?permanent=true',
+                         headers=auth(admin)).status_code == 204
+    courses = client.get("/api/admin/courses", headers=auth(admin)).get_json()
+    assert all(c["id"] != course["id"] for c in courses)
 
     form = client.get("/api/admin/questionnaires", headers=auth(admin)).get_json()[0]
     assert client.delete(f'/api/admin/questionnaires/{form["id"]}', headers=auth(admin)).status_code == 204
