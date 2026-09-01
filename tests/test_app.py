@@ -37,6 +37,17 @@ def test_registration_login_and_admin_role(client):
 def test_admin_user_crud_and_safe_form_deletion(client):
     register(client, "admin@example.com")
     admin = login(client, "admin@example.com")
+    with client.application.app_context():
+        pending = User(email="pending@example.com", name="Pendiente", role="student",
+                       is_verified=False, is_active=True)
+        pending.set_password("Segura123!")
+        pending.issue_verification_token()
+        db.session.add(pending); db.session.commit(); pending_id = pending.id
+    activated = client.put(f"/api/admin/users/{pending_id}", headers=auth(admin),
+                           json={"is_verified": True, "is_active": True})
+    assert activated.status_code == 200
+    assert activated.get_json()["is_verified"] is True
+    assert login(client, "pending@example.com")
     created = client.post("/api/admin/users", headers=auth(admin), json={
         "name": "Tutor inicial", "email": "new-tutor@example.com",
         "password": "Segura123!", "role": "tutor",

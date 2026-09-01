@@ -321,6 +321,8 @@ def admin_user(user_id):
             return error("No puedes retirar tus propios permisos de administración", 409)
         for key in ("name", "role", "is_active", "is_verified"):
             if key in data: setattr(user, key, data[key])
+        if data.get("is_verified") is True:
+            user.verification_token = None
         if "password" in data:
             if len(data["password"]) < 8: return error("La contraseña debe tener al menos 8 caracteres")
             user.set_password(data["password"])
