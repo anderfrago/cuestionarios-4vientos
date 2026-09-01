@@ -9,8 +9,16 @@ from .seed import seed_questionnaires
 
 def create_app(config=None):
     load_dotenv()
-    static_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist" / "autopercepcion" / "browser"
-    app = Flask(__name__, static_folder=str(static_dir), static_url_path="")
+
+    static_dir = (
+        Path(__file__).resolve().parent.parent
+        / "frontend"
+        / "dist"
+        / "autopercepcion"
+        / "browser"
+    )
+
+    app = Flask(__name__, static_folder=None)
     app.config.from_object(Config)
     if config: app.config.update(config)
     db.init_app(app); migrate.init_app(app, db); jwt.init_app(app); mail.init_app(app); oauth.init_app(app)
@@ -31,12 +39,22 @@ def create_app(config=None):
     @app.get("/")
     @app.get("/<path:path>")
     def frontend(path=""):
+        if path.startswith("api/"):
+            return jsonify(error="Recurso no encontrado"), 404
+
         candidate = static_dir / path
+
         if path and candidate.is_file():
             return send_from_directory(static_dir, path)
-        if (static_dir / "index.html").is_file():
+
+        index_file = static_dir / "index.html"
+
+        if index_file.is_file():
             return send_from_directory(static_dir, "index.html")
-        return jsonify(message="Frontend no compilado. Ejecuta npm run build en frontend/"), 503
+
+        return jsonify(
+            message="Frontend no compilado. Ejecuta npm run build en frontend/"
+        ), 503
 
     @app.cli.command("seed-data")
     def seed_data_command():
