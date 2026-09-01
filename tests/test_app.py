@@ -8,7 +8,8 @@ from backend.models import Course, Enrollment, User
 def app():
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
                       "ADMIN_EMAILS": {"admin@example.com"}, "MAIL_USERNAME": None,
-                      "JWT_SECRET_KEY": "test-key-that-is-longer-than-thirty-two-bytes"})
+                      "JWT_SECRET_KEY": "test-key-that-is-longer-than-thirty-two-bytes",
+                      "AUTO_CREATE_DB": True})
     yield app
 
 
@@ -53,3 +54,46 @@ def test_tutor_cannot_see_another_course(client, app):
         db.session.add_all([own,other]); db.session.commit(); other_id=other.id
     token=login(client,"tutor@example.com")
     assert client.get(f"/api/courses/{other_id}/analytics",headers=auth(token)).status_code==403
+
+
+def test_versioned_form_alert_and_exports(client, tmp_path):
+    register(client, "admin@example.com"); register(client, "student@example.com")
+    admin, student = login(client, "admin@example.com"), login(client, "student@example.com")
+    course = client.post("/api/admin/courses", headers=auth(admin),
+        json={"name":"DAW1","academic_year":"2026-2027","level":1}).get_json()
+    forms = client.get("/api/admin/questionnaires", headers=auth(admin)).get_json()
+    form = next(f for f in forms if f["level"] == 1)
+    assert client.put(f'/api/admin/courses/{course["id"]}/questionnaires', headers=auth(admin),
+        json={"questionnaire_ids":[form["id"]]}).status_code == 200
+    client.post("/api/courses/join", headers=auth(student), json={"code":course["invite_code"]})
+    available = client.get(f'/api/courses/{course["id"]}/forms', headers=auth(student)).get_json()["forms"]
+    version_id = available[0]["version_id"]
+    definition = client.get(f'/api/courses/{course["id"]}/forms/{version_id}', headers=auth(student)).get_json()
+    responses = []
+    for aspect in definition["version"]["aspects"]:
+        for question in aspect["questions"]:
+            targets = question["rows"] or [None]
+            for row in targets:
+                response = {"question_id": question["id"], "row_id": row["id"] if row else None}
+                if question["question_type"] == "text": response["text_value"] = "Respuesta abierta"
+                else:
+                    option = question["options"][1 if question["is_critical"] else 0]
+                    response["option_id"] = option["id"]
+                responses.append(response)
+    submitted = client.post(f'/api/courses/{course["id"]}/forms/{version_id}/attempts',
+        headers=auth(student), json={"responses":responses})
+    assert submitted.status_code == 201
+    analytics = client.get(f'/api/courses/{course["id"]}/form-analytics', headers=auth(admin)).get_json()
+    assert len(analytics["attempts"]) == 1
+    assert len(analytics["alerts"]) == 1
+    assert client.put(f'/api/alerts/{analytics["alerts"][0]["id"]}/review', headers=auth(admin),
+        json={"notes":"Protocolo activado"}).status_code == 200
+    xlsx = client.get(f'/api/courses/{course["id"]}/export.xlsx', headers=auth(admin))
+    pdf = client.get(f'/api/courses/{course["id"]}/export.pdf', headers=auth(admin))
+    assert xlsx.status_code == 200 and xlsx.data[:2] == b"PK"
+    assert pdf.status_code == 200 and pdf.data[:4] == b"%PDF"
+    (tmp_path / "export.xlsx").write_bytes(xlsx.data)
+    (tmp_path / "export.pdf").write_bytes(pdf.data)
+    draft = client.post(f'/api/admin/questionnaires/{form["id"]}/versions', headers=auth(admin),
+        json={"source_version_id":version_id}).get_json()
+    assert draft["version"] == 2 and draft["status"] == "draft"

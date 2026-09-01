@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from .config import Config
 from .extensions import cors, db, jwt, mail, migrate, oauth
 from .routes import api
+from .forms import forms
 from .seed import seed_questionnaires
 
 
@@ -29,6 +30,7 @@ def create_app(config=None):
                        client_kwargs={"scope": "openid email profile"})
     cors.init_app(app, resources={r"/api/*": {"origins": app.config["FRONTEND_URL"]}})
     app.register_blueprint(api)
+    app.register_blueprint(forms)
 
     @app.errorhandler(404)
     def not_found(_): return jsonify(error="Recurso no encontrado"), 404

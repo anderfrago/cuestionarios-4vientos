@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { tap } from 'rxjs';
-import { Aspect, Attempt, Course, User } from './models';
+import { Aspect, Attempt, Course, CriticalAlert, FormAspect, FormQuestion, FormResponseInput, FormVersion, Questionnaire, User } from './models';
 
 @Injectable({providedIn:'root'})
 export class ApiService {
@@ -31,5 +31,24 @@ export class ApiService {
   updateAspect(id:number,data:Partial<Aspect>&Record<string,unknown>) { return this.http.put<Aspect>(`/api/admin/aspects/${id}`,data); }
   createItem(data:Partial<import('./models').Item>) { return this.http.post('/api/admin/items',data); }
   updateItem(id:number,data:Partial<import('./models').Item>) { return this.http.put(`/api/admin/items/${id}`,data); }
+  questionnaires() { return this.http.get<Questionnaire[]>('/api/admin/questionnaires'); }
+  createQuestionnaire(data:Partial<Questionnaire>) { return this.http.post<Questionnaire>('/api/admin/questionnaires',data); }
+  updateQuestionnaire(id:number,data:Partial<Questionnaire>) { return this.http.put<Questionnaire>(`/api/admin/questionnaires/${id}`,data); }
+  archiveQuestionnaire(id:number) { return this.http.delete(`/api/admin/questionnaires/${id}`); }
+  createVersion(id:number,source_version_id?:number) { return this.http.post<FormVersion>(`/api/admin/questionnaires/${id}/versions`,{source_version_id}); }
+  publishVersion(id:number) { return this.http.post<FormVersion>(`/api/admin/versions/${id}/publish`,{}); }
+  createFormAspect(versionId:number,name:string) { return this.http.post<FormAspect>(`/api/admin/versions/${versionId}/aspects`,{name}); }
+  updateFormAspect(id:number,data:Partial<FormAspect>) { return this.http.put<FormAspect>(`/api/admin/form-aspects/${id}`,data); }
+  archiveFormAspect(id:number) { return this.http.delete(`/api/admin/form-aspects/${id}`); }
+  createQuestion(aspectId:number,data:Partial<FormQuestion>) { return this.http.post<FormQuestion>(`/api/admin/form-aspects/${aspectId}/questions`,data); }
+  updateQuestion(id:number,data:Partial<FormQuestion>) { return this.http.put<FormQuestion>(`/api/admin/questions/${id}`,data); }
+  archiveQuestion(id:number) { return this.http.delete(`/api/admin/questions/${id}`); }
+  moveQuestion(id:number,direction:'up'|'down') { return this.http.post<FormQuestion>(`/api/admin/questions/${id}/move`,{direction}); }
+  assignForms(courseId:number,questionnaire_ids:number[]) { return this.http.put(`/api/admin/courses/${courseId}/questionnaires`,{questionnaire_ids}); }
+  courseForms(courseId:number) { return this.http.get<{course:Course;forms:Questionnaire[]}>(`/api/courses/${courseId}/forms`); }
+  formDefinition(courseId:number,versionId:number) { return this.http.get<{course:Course;questionnaire:Questionnaire;version:FormVersion}>(`/api/courses/${courseId}/forms/${versionId}`); }
+  submitForm(courseId:number,versionId:number,responses:FormResponseInput[]) { return this.http.post<Attempt>(`/api/courses/${courseId}/forms/${versionId}/attempts`,{responses}); }
+  formAnalytics(courseId:number) { return this.http.get<{course:Course;summary:{aspect:string;average:number;count:number}[];attempts:(Attempt&{responses:unknown[]})[];alerts:CriticalAlert[]}>(`/api/courses/${courseId}/form-analytics`); }
+  reviewAlert(id:number,notes:string) { return this.http.put<CriticalAlert>(`/api/alerts/${id}/review`,{notes}); }
+  download(url:string,filename:string) { this.http.get(url,{responseType:'blob'}).subscribe(blob=>{const href=URL.createObjectURL(blob);const a=document.createElement('a');a.href=href;a.download=filename;a.click();URL.revokeObjectURL(href)}); }
 }
-

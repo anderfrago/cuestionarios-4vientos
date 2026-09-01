@@ -1,6 +1,6 @@
 # Autopercepción Cuatrovientos
 
-Aplicación Flask + Angular 21 para cuestionarios de autopercepción de primero y segundo. Incluye roles de alumnado, tutoría y administración; invitaciones por código; múltiples intentos; análisis individual/grupal y exportación CSV.
+Aplicación Flask + Angular 21 para cuestionarios de autopercepción de primero y segundo. Incluye roles de alumnado, tutoría y administración; invitaciones por código; formularios versionados y editables; múltiples intentos; alertas protegidas; análisis individual/grupal y exportación Excel/PDF.
 
 ## Desarrollo local
 
@@ -26,10 +26,29 @@ La API queda en `http://127.0.0.1:5000` y Angular en `http://localhost:4200`.
 
 ## Decisiones funcionales
 
+- Cada curso puede tener varios formularios publicados asignados.
+- Las versiones publicadas son inmutables; cualquier edición crea una versión nueva y preserva los intentos anteriores.
+- Tipos disponibles: sí/no, desplegable, opinión abierta, radio y matrices de opciones o minutos.
+- Cada opción puede tener puntuación o quedar sin evaluar. Las respuestas informativas se exportan, pero no entran en el resumen estadístico.
 - Rangos iniciales editables: 1,00–1,99 Incipiente; 2,00–2,99 En desarrollo; 3,00–4,00 Generado.
-- Los ítems redactados en negativo invierten la puntuación (`5 - respuesta`).
+- Las preguntas pueden usar puntuación inversa, ser obligatorias u opcionales y admitir una respuesta «Otra».
+- Las respuestas críticas de autolesión generan una alerta visible para tutoría/administración con estado y notas de revisión; nunca se envían por correo.
+- Excel contiene todas las respuestas; PDF ofrece informe de curso y ficha individual.
 - Las respuestas históricas de los documentos de referencia no se importan por privacidad.
 - El enlace RGPD se muestra en acceso y pie de página.
 - Google OAuth queda preparado mediante variables de entorno; antes del despliegue hay que registrar la URL final de callback en Google Cloud.
 
 La guía completa de instalación y despliegue se entrega en `docs/Guia_instalacion_y_despliegue.docx`.
+
+## Actualización de una instalación existente
+
+```bash
+git pull
+source ~/.virtualenvs/autopercepcion-env/bin/activate
+python -m pip install -r requirements.txt
+python -m flask --app backend.app db upgrade
+python -m flask --app backend.app seed-data
+cd frontend && npm install && npm run build
+```
+
+Después hay que recargar la aplicación web. El administrador debe asignar los formularios publicados a cada curso desde **Administración > Cursos**.
