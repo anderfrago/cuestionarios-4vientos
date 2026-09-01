@@ -20,6 +20,14 @@ def error(message, status=400):
     return jsonify({"error": message}), status
 
 
+def promote_configured_admin(user):
+    """Keep existing accounts in sync with the configured administrator list."""
+    if user.email.lower() in current_app.config["ADMIN_EMAILS"] and user.role != "admin":
+        user.role = "admin"
+        return True
+    return False
+
+
 def allowed_course(user, course):
     return user.role == "admin" or (user.role == "tutor" and course.tutor_id == user.id)
 
@@ -92,6 +100,8 @@ def login():
         return error("Credenciales incorrectas", 401)
     if not user.is_active or not user.is_verified:
         return error("La cuenta está inactiva o pendiente de verificación", 403)
+    if promote_configured_admin(user):
+        db.session.commit()
     return {"access_token": create_access_token(identity=str(user.id)), "user": user.as_dict()}
 
 
@@ -115,6 +125,7 @@ def google_callback():
         db.session.add(user)
     else:
         user.is_verified = True
+        promote_configured_admin(user)
     db.session.commit()
     access = create_access_token(identity=str(user.id))
     return redirect(f'{current_app.config["FRONTEND_URL"]}/acceso?token={access}')
@@ -239,9 +250,21 @@ def admin_course(course_id):
 @roles_required("admin")
 def admin_users():
     if request.method == "GET": return [u.as_dict() for u in User.query.order_by(User.name).all()]
-    data = payload(); user = User(email=data["email"].lower(), name=data["name"],
-                                 role=data.get("role", "student"), is_verified=True)
-    user.set_password(data.get("password", "Cambiar123!")); db.session.add(user); db.session.commit()
+    data = payload()
+    email = data.get("email", "").strip().lower()
+    name = data.get("name", "").strip()
+    role = data.get("role", "student")
+    password = data.get("password", "")
+    if not name or "@" not in email:
+        return error("Nombre y correo válido son obligatorios")
+    if role not in {"student", "tutor", "admin"}:
+        return error("Rol no válido")
+    if User.query.filter(func.lower(User.email) == email).first():
+        return error("Ya existe una cuenta con ese correo", 409)
+    if len(password) < 8:
+        return error("La contraseña debe tener al menos 8 caracteres")
+    user = User(email=email, name=name, role=role, is_verified=True)
+    user.set_password(password); db.session.add(user); db.session.commit()
     return user.as_dict(), 201
 
 
@@ -249,11 +272,28 @@ def admin_users():
 @roles_required("admin")
 def admin_user(user_id):
     user = User.query.get_or_404(user_id)
-    if request.method == "DELETE": user.is_active = False
+    actor = current_user()
+    if request.method == "DELETE":
+        if user.id == actor.id:
+            return error("No puedes desactivar tu propia cuenta", 409)
+        user.is_active = False
     else:
         data = payload()
+        if "email" in data:
+            email = data["email"].strip().lower()
+            duplicate = User.query.filter(func.lower(User.email) == email, User.id != user.id).first()
+            if "@" not in email: return error("Correo no válido")
+            if duplicate: return error("Ya existe una cuenta con ese correo", 409)
+            user.email = email
+        if data.get("role") not in (None, "student", "tutor", "admin"):
+            return error("Rol no válido")
+        if user.id == actor.id and (data.get("role") not in (None, "admin") or data.get("is_active") is False):
+            return error("No puedes retirar tus propios permisos de administración", 409)
         for key in ("name", "role", "is_active", "is_verified"):
             if key in data: setattr(user, key, data[key])
+        if "password" in data:
+            if len(data["password"]) < 8: return error("La contraseña debe tener al menos 8 caracteres")
+            user.set_password(data["password"])
     db.session.commit(); return ("", 204) if request.method == "DELETE" else user.as_dict()
 
 

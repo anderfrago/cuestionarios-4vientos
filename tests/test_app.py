@@ -34,6 +34,32 @@ def test_registration_login_and_admin_role(client):
     assert client.get("/api/me", headers=auth(token)).get_json()["user"]["role"] == "admin"
 
 
+def test_admin_user_crud_and_safe_form_deletion(client):
+    register(client, "admin@example.com")
+    admin = login(client, "admin@example.com")
+    created = client.post("/api/admin/users", headers=auth(admin), json={
+        "name": "Tutor inicial", "email": "new-tutor@example.com",
+        "password": "Segura123!", "role": "tutor",
+    })
+    assert created.status_code == 201
+    user_id = created.get_json()["id"]
+    updated = client.put(f"/api/admin/users/{user_id}", headers=auth(admin), json={
+        "name": "Tutor editado", "email": "tutor@example.com", "role": "tutor",
+    })
+    assert updated.status_code == 200
+    assert updated.get_json()["email"] == "tutor@example.com"
+    assert client.delete(f"/api/admin/users/{user_id}", headers=auth(admin)).status_code == 204
+    users = client.get("/api/admin/users", headers=auth(admin)).get_json()
+    assert next(u for u in users if u["id"] == user_id)["is_active"] is False
+
+    form = client.get("/api/admin/questionnaires", headers=auth(admin)).get_json()[0]
+    assert client.delete(f'/api/admin/questionnaires/{form["id"]}', headers=auth(admin)).status_code == 204
+    restored = client.put(f'/api/admin/questionnaires/{form["id"]}', headers=auth(admin),
+                          json={"is_archived": False})
+    assert restored.status_code == 200
+    assert restored.get_json()["is_archived"] is False
+
+
 def test_student_joins_by_code_and_submits_complete_questionnaire(client, app):
     register(client, "admin@example.com"); register(client, "student@example.com")
     admin_token, student_token = login(client, "admin@example.com"), login(client, "student@example.com")

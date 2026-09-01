@@ -15,7 +15,7 @@ export class ApiService {
   login(email:string,password:string) { return this.http.post<{access_token:string;user:User}>('/api/auth/login',{email,password}).pipe(tap(r=>{localStorage.setItem('token',r.access_token);localStorage.setItem('user',JSON.stringify(r.user));this.user.set(r.user)})); }
   register(data:{name:string;email:string;password:string}) { return this.http.post('/api/auth/register',data); }
   logout() { localStorage.clear(); this.user.set(null); this.courses.set([]); }
-  loadMe() { return this.http.get<{user:User;courses:Course[]}>('/api/me').pipe(tap(r=>{this.user.set(r.user);this.courses.set(r.courses)})); }
+  loadMe() { return this.http.get<{user:User;courses:Course[]}>('/api/me').pipe(tap(r=>{localStorage.setItem('user',JSON.stringify(r.user));this.user.set(r.user);this.courses.set(r.courses)})); }
   join(code:string) { return this.http.post<Course>('/api/courses/join',{code}).pipe(tap(c=>this.courses.update(v=>[...v.filter(x=>x.id!==c.id),c]))); }
   questionnaire(courseId:number) { return this.http.get<{course:Course;scale:{value:number;label:string}[];aspects:Aspect[]}>(`/api/courses/${courseId}/questionnaire`); }
   submit(courseId:number, answers:{item_id:number;value:number}[]) { return this.http.post<Attempt>(`/api/courses/${courseId}/attempts`,{answers}); }
@@ -27,6 +27,7 @@ export class ApiService {
   users() { return this.http.get<User[]>('/api/admin/users'); }
   createUser(data:Partial<User>&{password?:string}) { return this.http.post<User>('/api/admin/users',data); }
   updateUser(id:number,data:Partial<User>) { return this.http.put<User>(`/api/admin/users/${id}`,data); }
+  deleteUser(id:number) { return this.http.delete(`/api/admin/users/${id}`); }
   aspects() { return this.http.get<Aspect[]>('/api/admin/aspects'); }
   updateAspect(id:number,data:Partial<Aspect>&Record<string,unknown>) { return this.http.put<Aspect>(`/api/admin/aspects/${id}`,data); }
   createItem(data:Partial<import('./models').Item>) { return this.http.post('/api/admin/items',data); }
@@ -35,6 +36,7 @@ export class ApiService {
   createQuestionnaire(data:Partial<Questionnaire>) { return this.http.post<Questionnaire>('/api/admin/questionnaires',data); }
   updateQuestionnaire(id:number,data:Partial<Questionnaire>) { return this.http.put<Questionnaire>(`/api/admin/questionnaires/${id}`,data); }
   archiveQuestionnaire(id:number) { return this.http.delete(`/api/admin/questionnaires/${id}`); }
+  restoreQuestionnaire(id:number) { return this.http.put<Questionnaire>(`/api/admin/questionnaires/${id}`,{is_archived:false}); }
   createVersion(id:number,source_version_id?:number) { return this.http.post<FormVersion>(`/api/admin/questionnaires/${id}/versions`,{source_version_id}); }
   publishVersion(id:number) { return this.http.post<FormVersion>(`/api/admin/versions/${id}/publish`,{}); }
   createFormAspect(versionId:number,name:string) { return this.http.post<FormAspect>(`/api/admin/versions/${versionId}/aspects`,{name}); }
