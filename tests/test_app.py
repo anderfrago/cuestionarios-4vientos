@@ -51,6 +51,20 @@ def test_admin_user_crud_and_safe_form_deletion(client):
     assert client.delete(f"/api/admin/users/{user_id}", headers=auth(admin)).status_code == 204
     users = client.get("/api/admin/users", headers=auth(admin)).get_json()
     assert next(u for u in users if u["id"] == user_id)["is_active"] is False
+    assert client.delete(f"/api/admin/users/{user_id}?permanent=true", headers=auth(admin)).status_code == 204
+    users = client.get("/api/admin/users", headers=auth(admin)).get_json()
+    assert all(u["id"] != user_id for u in users)
+
+    course = client.post("/api/admin/courses", headers=auth(admin), json={
+        "name": "Curso borrable", "academic_year": "2026-2027", "level": 1,
+    }).get_json()
+    assert client.delete(f'/api/admin/courses/{course["id"]}', headers=auth(admin)).status_code == 204
+    courses = client.get("/api/admin/courses", headers=auth(admin)).get_json()
+    assert next(c for c in courses if c["id"] == course["id"])["is_active"] is False
+    restored_course = client.put(f'/api/admin/courses/{course["id"]}', headers=auth(admin),
+                                 json={"is_active": True})
+    assert restored_course.status_code == 200
+    assert restored_course.get_json()["is_active"] is True
 
     form = client.get("/api/admin/questionnaires", headers=auth(admin)).get_json()[0]
     assert client.delete(f'/api/admin/questionnaires/{form["id"]}', headers=auth(admin)).status_code == 204

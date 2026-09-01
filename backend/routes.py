@@ -7,7 +7,8 @@ from flask_mail import Message
 from sqlalchemy import func
 from .auth import current_user, roles_required
 from .extensions import db, mail, oauth
-from .models import Answer, Aspect, Attempt, Course, Enrollment, Item, User
+from .models import (Answer, Aspect, Attempt, Course, CriticalAlert, Enrollment,
+                     FormAttempt, Item, User)
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
@@ -276,6 +277,21 @@ def admin_user(user_id):
     if request.method == "DELETE":
         if user.id == actor.id:
             return error("No puedes desactivar tu propia cuenta", 409)
+        if request.args.get("permanent", "false").lower() == "true":
+            if user.is_active:
+                return error("Primero debes desactivar el usuario", 409)
+            has_history = (
+                Course.query.filter_by(tutor_id=user.id).first()
+                or Enrollment.query.filter_by(student_id=user.id).first()
+                or Attempt.query.filter_by(student_id=user.id).first()
+                or FormAttempt.query.filter_by(student_id=user.id).first()
+                or CriticalAlert.query.filter_by(reviewed_by_id=user.id).first()
+            )
+            if has_history:
+                return error("No se puede borrar definitivamente: el usuario tiene cursos, matrículas o respuestas asociadas", 409)
+            db.session.delete(user)
+            db.session.commit()
+            return "", 204
         user.is_active = False
     else:
         data = payload()

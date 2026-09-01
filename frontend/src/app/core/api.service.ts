@@ -24,10 +24,12 @@ export class ApiService {
   adminCourses() { return this.http.get<Course[]>('/api/admin/courses'); }
   createCourse(data:Partial<Course>) { return this.http.post<Course>('/api/admin/courses',data); }
   updateCourse(id:number,data:Partial<Course>) { return this.http.put<Course>(`/api/admin/courses/${id}`,data); }
+  deleteCourse(id:number) { return this.http.delete(`/api/admin/courses/${id}`); }
   users() { return this.http.get<User[]>('/api/admin/users'); }
   createUser(data:Partial<User>&{password?:string}) { return this.http.post<User>('/api/admin/users',data); }
   updateUser(id:number,data:Partial<User>) { return this.http.put<User>(`/api/admin/users/${id}`,data); }
   deleteUser(id:number) { return this.http.delete(`/api/admin/users/${id}`); }
+  permanentlyDeleteUser(id:number) { return this.http.delete(`/api/admin/users/${id}?permanent=true`); }
   aspects() { return this.http.get<Aspect[]>('/api/admin/aspects'); }
   updateAspect(id:number,data:Partial<Aspect>&Record<string,unknown>) { return this.http.put<Aspect>(`/api/admin/aspects/${id}`,data); }
   createItem(data:Partial<import('./models').Item>) { return this.http.post('/api/admin/items',data); }
