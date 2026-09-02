@@ -3,33 +3,196 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { Course, FormAspect, FormQuestion, FormVersion, Questionnaire, User } from '../core/models';
 
-@Component({standalone:true,imports:[FormsModule],template:`
-<div class="container py-5"><p class="text-primary fw-semibold mb-1">Configuración global</p><h1 class="h2">Administración</h1>
-<ul class="nav nav-pills my-4"><li class="nav-item"><button class="nav-link" [class.active]="tab()==='courses'" (click)="tab.set('courses')">Cursos</button></li><li class="nav-item"><button class="nav-link" [class.active]="tab()==='users'" (click)="tab.set('users')">Usuarios</button></li><li class="nav-item"><button class="nav-link" [class.active]="tab()==='forms'" (click)="tab.set('forms')">Formularios</button></li></ul>
-@if(message()){<div class="alert alert-info">{{message()}}</div>}
-@if(tab()==='courses'){<div class="card shadow-sm p-4 mb-4"><h2 class="h5">Nuevo curso</h2><div class="row g-2"><div class="col-md"><input class="form-control" [(ngModel)]="newCourse.name" placeholder="Nombre"></div><div class="col-md"><input class="form-control" [(ngModel)]="newCourse.academic_year" placeholder="2026-2027"></div><div class="col-md"><select class="form-select" [(ngModel)]="newCourse.level"><option [ngValue]="1">Primero</option><option [ngValue]="2">Segundo</option></select></div><div class="col-md"><select class="form-select" [(ngModel)]="newCourse.tutor_id"><option [ngValue]="null">Sin tutor</option>@for(u of tutors();track u.id){<option [ngValue]="u.id">{{u.name}}</option>}</select></div><div class="col-auto"><button class="btn btn-primary" (click)="addCourse()">Crear</button></div></div></div>
-<div class="row g-3">@for(c of activeCourses();track c.id){<div class="col-lg-6"><div class="card shadow-sm p-4 h-100"><div class="d-flex justify-content-between gap-2"><div><h2 class="h5">{{c.name}}</h2><p class="small text-secondary">{{c.academic_year}} · {{c.level}}º · Código <code>{{c.invite_code}}</code></p></div><button class="btn btn-sm btn-outline-danger align-self-start" (click)="deleteCourse(c)">Eliminar</button></div><label class="form-label">Tutor/a</label><select class="form-select mb-3" [ngModel]="c.tutor_id" (ngModelChange)="assignTutor(c,$event)"><option [ngValue]="null">Sin tutor</option>@for(u of tutors();track u.id){<option [ngValue]="u.id">{{u.name}}</option>}</select><label class="form-label">Formularios publicados asignados</label>@for(f of formsForLevel(c.level);track f.id){<label class="form-check"><input class="form-check-input" type="checkbox" [checked]="isAssigned(c,f)" (change)="toggleAssignment(c,f)"><span class="form-check-label">{{f.name}}</span></label>}@empty{<p class="small text-secondary">No hay formularios publicados para este nivel.</p>}</div></div>}@empty{<div class="col-12"><div class="alert alert-secondary">No hay cursos activos.</div></div>}</div>@if(inactiveCourses().length){<h2 class="h5 mt-5">Cursos eliminados</h2><div class="list-group">@for(c of inactiveCourses();track c.id){<div class="list-group-item d-flex justify-content-between align-items-center gap-3"><div><strong>{{c.name}}</strong><div class="small text-secondary">{{c.academic_year}} · {{c.level}}º</div></div><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" (click)="restoreCourse(c)">Restaurar</button><button class="btn btn-sm btn-danger" (click)="permanentlyDeleteCourse(c)">Borrar</button></div></div>}</div>}}
-@if(tab()==='users'){<div class="card shadow-sm p-4 mb-4"><h2 class="h5">Nuevo usuario</h2><div class="row g-2"><div class="col-md"><input class="form-control" [(ngModel)]="newUser.name" placeholder="Nombre"></div><div class="col-md"><input class="form-control" type="email" [(ngModel)]="newUser.email" placeholder="correo@cuatrovientos.org"></div><div class="col-md"><input class="form-control" type="password" [(ngModel)]="newUser.password" placeholder="Contraseña (mín. 8)"></div><div class="col-md"><select class="form-select" [(ngModel)]="newUser.role"><option value="student">Alumno/a</option><option value="tutor">Tutor/a</option><option value="admin">Administrador/a</option></select></div><div class="col-auto"><button class="btn btn-primary" (click)="addUser()">Crear</button></div></div></div><div class="table-responsive card shadow-sm"><table class="table align-middle mb-0"><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead><tbody>@for(u of users();track u.id){<tr><td><input class="form-control" [(ngModel)]="u.name"></td><td><input class="form-control" type="email" [(ngModel)]="u.email"></td><td><select class="form-select" [(ngModel)]="u.role"><option value="student">Alumno/a</option><option value="tutor">Tutor/a</option><option value="admin">Administrador/a</option></select></td><td><div class="d-flex flex-column align-items-start gap-1"><span class="badge" [class.text-bg-success]="u.is_active" [class.text-bg-secondary]="!u.is_active">{{u.is_active?'Activo':'Inactivo'}}</span>@if(!u.is_verified){<span class="badge text-bg-warning">Correo pendiente</span>}</div></td><td><div class="d-flex flex-wrap justify-content-end gap-2">@if(!u.is_verified){<button class="btn btn-sm btn-success" (click)="activateUser(u)">Activar cuenta</button>}@if(u.is_active){<button class="btn btn-sm btn-outline-primary" (click)="updateUser(u,{name:u.name,email:u.email,role:u.role})">Guardar</button><button class="btn btn-sm btn-outline-danger" (click)="deleteUser(u)">Eliminar</button>}@else{<button class="btn btn-sm btn-outline-success" (click)="updateUser(u,{is_active:true})">Restaurar</button><button class="btn btn-sm btn-danger" (click)="permanentlyDeleteUser(u)">Borrar</button>}</div></td></tr>}</tbody></table></div>}
-@if(tab()==='forms'){<div class="row g-4"><div class="col-lg-4"><div class="card shadow-sm p-4 mb-3"><h2 class="h5">Nuevo formulario</h2><input class="form-control mb-2" [(ngModel)]="newForm.name" placeholder="Nombre"><textarea class="form-control mb-2" [(ngModel)]="newForm.description" placeholder="Descripción"></textarea><select class="form-select mb-3" [(ngModel)]="newForm.level"><option [ngValue]="1">Primero</option><option [ngValue]="2">Segundo</option></select><button class="btn btn-primary" (click)="addForm()">Crear</button></div><div class="list-group shadow-sm">@for(f of activeForms();track f.id){<button class="list-group-item list-group-item-action" [class.active]="selectedForm()?.id===f.id" (click)="selectForm(f)"><strong>{{f.name}}</strong><div class="small">{{f.level}}º</div></button>}@empty{<div class="list-group-item text-secondary">No hay formularios activos.</div>}</div>@if(archivedForms().length){<h3 class="h6 mt-4">Eliminados</h3><div class="list-group">@for(f of archivedForms();track f.id){<div class="list-group-item d-flex justify-content-between align-items-center gap-2"><span>{{f.name}}</span><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" (click)="restoreForm(f)">Restaurar</button><button class="btn btn-sm btn-danger" (click)="permanentlyDeleteForm(f)">Borrar</button></div></div>}</div>}</div>
-<div class="col-lg-8">@if(selectedForm();as f){<div class="card shadow-sm p-4 mb-3"><div class="d-flex justify-content-between gap-2"><div><span class="badge text-bg-light">{{f.level}}º</span><h2 class="h4 mt-2">{{f.name}}</h2><p class="text-secondary">{{f.description}}</p></div><button class="btn btn-outline-danger btn-sm align-self-start" (click)="archiveForm(f)">Eliminar</button></div><div class="d-flex flex-wrap gap-2"><button class="btn btn-outline-primary" (click)="duplicateForm(f)">Duplicar formulario</button><button class="btn btn-outline-primary" (click)="newVersion(f)">Nueva versión desde la publicada</button>@for(v of f.versions;track v.id){<button class="btn btn-sm" [class.btn-primary]="version()?.id===v.id" [class.btn-outline-secondary]="version()?.id!==v.id" (click)="version.set(v)">v{{v.version}} · {{v.status}}</button>}</div></div>
-@if(version();as v){<div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0">Versión {{v.version}} · {{v.status}}</h3>@if(v.status==='draft'){<div class="d-flex gap-2"><button class="btn btn-outline-primary" (click)="addAspect(v)">Añadir aspecto</button><button class="btn btn-success" (click)="publish(v)">Publicar versión</button></div>}</div>
-@if(v.status!=='draft'){<div class="alert alert-secondary">Las versiones publicadas son inmutables. Crea una nueva versión para editar.</div>}
-@for(a of v.aspects;track a.id){<div class="card shadow-sm p-4 mb-3"><div class="d-flex justify-content-between"><div class="flex-grow-1 me-3"><input class="form-control fw-semibold" [(ngModel)]="a.name" [disabled]="v.status!=='draft'"><textarea class="form-control mt-2" [(ngModel)]="a.description" [disabled]="v.status!=='draft'" placeholder="Descripción"></textarea></div>@if(v.status==='draft'){<div class="d-flex flex-column gap-2"><button class="btn btn-sm btn-outline-primary" (click)="saveAspect(a)">Guardar</button><button class="btn btn-sm btn-outline-danger" (click)="removeAspect(a)">Archivar</button></div>}</div>
-@if(v.status==='draft'){<div class="row g-2 mt-2"><div class="col"><input class="form-control" type="number" step=".01" [(ngModel)]="a.low_max" placeholder="Máx. incipiente"></div><div class="col"><input class="form-control" type="number" step=".01" [(ngModel)]="a.medium_max" placeholder="Máx. desarrollo"></div><div class="col-auto"><button class="btn btn-primary" (click)="addQuestion(a)">Añadir pregunta</button></div></div>}
-@for(q of a.questions;track q.id){<div class="border rounded-3 p-3 mt-3"><div class="d-flex gap-2 mb-2"><button class="btn btn-sm btn-light" [disabled]="v.status!=='draft'" (click)="move(q,'up')">↑</button><button class="btn btn-sm btn-light" [disabled]="v.status!=='draft'" (click)="move(q,'down')">↓</button><input class="form-control fw-semibold" [(ngModel)]="q.title" [disabled]="v.status!=='draft'"></div><textarea class="form-control mb-2" [(ngModel)]="q.help_text" [disabled]="v.status!=='draft'" placeholder="Texto de ayuda"></textarea><div class="row g-2"><div class="col-md-4"><select class="form-select" [(ngModel)]="q.question_type" [disabled]="v.status!=='draft'"><option value="yes_no">Sí / No</option><option value="select">Lista desplegable</option><option value="text">Opinión abierta</option><option value="radio">Opciones</option><option value="matrix">Matriz</option><option value="number_matrix">Matriz numérica</option></select></div><div class="col-md-8 d-flex flex-wrap gap-3 align-items-center"><label class="form-check"><input class="form-check-input" type="checkbox" [(ngModel)]="q.required" [disabled]="v.status!=='draft'"> Obligatoria</label><label class="form-check"><input class="form-check-input" type="checkbox" [(ngModel)]="q.is_scored" [disabled]="v.status!=='draft'"> Evaluada</label><label class="form-check"><input class="form-check-input" type="checkbox" [(ngModel)]="q.reverse_scored" [disabled]="v.status!=='draft'"> Inversa</label><label class="form-check"><input class="form-check-input" type="checkbox" [(ngModel)]="q.allow_other" [disabled]="v.status!=='draft'"> Otra</label><label class="form-check"><input class="form-check-input" type="checkbox" [(ngModel)]="q.is_critical" [disabled]="v.status!=='draft'"> Alerta crítica</label></div></div>
-@if(q.question_type!=='text'){<h4 class="h6 mt-3">Opciones y puntuación</h4>@for(o of q.options;track $index){<div class="input-group input-group-sm mb-1"><input class="form-control" [(ngModel)]="o.label" [disabled]="v.status!=='draft'" placeholder="Etiqueta"><input class="form-control" type="number" [(ngModel)]="o.score" [disabled]="v.status!=='draft'" placeholder="Sin evaluar"><button class="btn btn-outline-danger" [disabled]="v.status!=='draft'" (click)="q.options.splice($index,1)">×</button></div>}@if(v.status==='draft'){<button class="btn btn-sm btn-link" (click)="addOption(q)">+ Opción</button>}}
-@if(q.question_type==='matrix'||q.question_type==='number_matrix'){<h4 class="h6 mt-2">Filas</h4>@for(r of q.rows;track $index){<div class="input-group input-group-sm mb-1"><input class="form-control" [(ngModel)]="r.label" [disabled]="v.status!=='draft'"><button class="btn btn-outline-danger" [disabled]="v.status!=='draft'" (click)="q.rows.splice($index,1)">×</button></div>}@if(v.status==='draft'){<button class="btn btn-sm btn-link" (click)="q.rows.push({label:''})">+ Fila</button>}}
-@if(v.status==='draft'){<div class="d-flex gap-2 mt-3"><button class="btn btn-sm btn-primary" (click)="saveQuestion(q)">Guardar pregunta</button><button class="btn btn-sm btn-outline-danger" (click)="removeQuestion(q)">Archivar</button></div>}</div>}</div>}
-}}@else{<div class="alert alert-info">Selecciona un formulario para editarlo.</div>}</div></div>}
-</div>`})
+@Component({
+    standalone: true,
+     imports: [FormsModule],
+     templateUrl: './admin.component.html'
+})
 export class AdminComponent implements OnInit {
- private api=inject(ApiService);tab=signal<'courses'|'users'|'forms'>('courses');courses=signal<Course[]>([]);users=signal<User[]>([]);questionnaires=signal<Questionnaire[]>([]);selectedForm=signal<Questionnaire|null>(null);version=signal<FormVersion|null>(null);message=signal('');assigned=signal<Record<number,number[]>>({});
- tutors=()=>this.users().filter(u=>(u.role==='tutor'||u.role==='admin')&&u.is_active);activeCourses=()=>this.courses().filter(c=>c.is_active);inactiveCourses=()=>this.courses().filter(c=>!c.is_active);activeForms=()=>this.questionnaires().filter(f=>!f.is_archived);archivedForms=()=>this.questionnaires().filter(f=>f.is_archived);newCourse:Partial<Course>={name:'',academic_year:'2026-2027',level:1,tutor_id:null};newForm:Partial<Questionnaire>={name:'',description:'',level:1};newUser:{name:string;email:string;password:string;role:'student'|'tutor'|'admin'}={name:'',email:'',password:'',role:'student'};
- ngOnInit(){this.reload()} reload(){this.api.adminCourses().subscribe(v=>{this.courses.set(v);this.assigned.set(Object.fromEntries(v.map(c=>[c.id,c.questionnaire_ids||[]]))) });this.api.users().subscribe(v=>this.users.set(v));this.api.questionnaires().subscribe(v=>{this.questionnaires.set(v);const current=this.selectedForm();if(current){const fresh=v.find(x=>x.id===current.id)||null;this.selectedForm.set(fresh);if(this.version()){this.version.set(fresh?.versions?.find(x=>x.id===this.version()!.id)||null)}}})}
- addCourse(){this.api.createCourse(this.newCourse).subscribe(()=>this.reload())} assignTutor(c:Course,id:number|null){this.api.updateCourse(c.id,{tutor_id:id}).subscribe(()=>this.reload())} deleteCourse(c:Course){this.api.deleteCourse(c.id).subscribe({next:()=>{this.message.set('Curso eliminado.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo eliminar el curso')})} restoreCourse(c:Course){this.api.updateCourse(c.id,{is_active:true}).subscribe({next:()=>{this.message.set('Curso restaurado.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo restaurar el curso')})} permanentlyDeleteCourse(c:Course){if(!confirm(`¿Borrar definitivamente el curso ${c.name} y todos los formularios completados en él? Esta acción no se puede deshacer.`))return;this.api.permanentlyDeleteCourse(c.id).subscribe({next:()=>{this.message.set('Curso y formularios completados borrados definitivamente.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo borrar definitivamente el curso')})} addUser(){this.api.createUser(this.newUser).subscribe({next:()=>{this.newUser={name:'',email:'',password:'',role:'student'};this.message.set('Usuario creado.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo crear el usuario')})} activateUser(u:User){this.api.updateUser(u.id,{is_verified:true,is_active:true}).subscribe({next:()=>{this.message.set('Cuenta activada sin confirmación por correo.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo activar la cuenta')})} updateUser(u:User,d:Partial<User>){this.api.updateUser(u.id,d).subscribe({next:()=>{this.message.set('Usuario actualizado.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo actualizar el usuario')})} deleteUser(u:User){this.api.deleteUser(u.id).subscribe({next:()=>{this.message.set('Usuario desactivado.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo eliminar el usuario')})} permanentlyDeleteUser(u:User){if(!confirm(`¿Borrar definitivamente a ${u.name} y todos sus formularios completados? Esta acción no se puede deshacer.`))return;this.api.permanentlyDeleteUser(u.id).subscribe({next:()=>{this.message.set('Usuario y formularios completados borrados definitivamente.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo borrar definitivamente el usuario')})}
- formsForLevel(level:number){return this.questionnaires().filter(f=>f.level===level&&!f.is_archived&&f.published_version_id)} isAssigned(c:Course,f:Questionnaire){return (this.assigned()[c.id]||[]).includes(f.id)} toggleAssignment(c:Course,f:Questionnaire){const ids=new Set(this.assigned()[c.id]||[]);ids.has(f.id)?ids.delete(f.id):ids.add(f.id);this.api.assignForms(c.id,[...ids]).subscribe(()=>this.assigned.update(v=>({...v,[c.id]:[...ids]})))}
- addForm(){this.api.createQuestionnaire(this.newForm).subscribe(f=>{this.newForm={name:'',description:'',level:1};this.reload();this.selectForm(f)})} selectForm(f:Questionnaire){this.selectedForm.set(f);this.version.set(f.versions?.find(v=>v.status==='draft')||f.versions?.at(-1)||null)} duplicateForm(f:Questionnaire){const name=prompt('Nombre del nuevo formulario',`Copia de ${f.name}`)?.trim();if(!name)return;this.api.duplicateQuestionnaire(f.id,name).subscribe({next:copy=>{this.message.set('Formulario duplicado. La copia está en borrador y ya puedes modificarla.');this.reload();this.selectForm(copy)},error:e=>this.message.set(e.error?.error||'No se pudo duplicar el formulario')})} archiveForm(f:Questionnaire){this.api.archiveQuestionnaire(f.id).subscribe(()=>{this.message.set('Formulario eliminado. Puedes restaurarlo desde la lista de eliminados.');this.selectedForm.set(null);this.version.set(null);this.reload()})} restoreForm(f:Questionnaire){this.api.restoreQuestionnaire(f.id).subscribe(()=>{this.message.set('Formulario restaurado.');this.reload()})} permanentlyDeleteForm(f:Questionnaire){if(!confirm(`¿Borrar definitivamente ${f.name} y todos sus formularios completados? Esta acción no se puede deshacer.`))return;this.api.permanentlyDeleteQuestionnaire(f.id).subscribe({next:()=>{this.message.set('Formulario y respuestas borrados definitivamente.');this.reload()},error:e=>this.message.set(e.error?.error||'No se pudo borrar definitivamente el formulario')})}
- newVersion(f:Questionnaire){this.api.createVersion(f.id,f.published_version_id||undefined).subscribe(v=>{this.reload();this.version.set(v)})} publish(v:FormVersion){this.api.publishVersion(v.id).subscribe(()=>{this.message.set('Versión publicada. Los intentos anteriores conservan su estructura.');this.reload()})}
- addAspect(v:FormVersion){this.api.createFormAspect(v.id,'Nuevo aspecto').subscribe(()=>this.reload())} saveAspect(a:FormAspect){this.api.updateFormAspect(a.id,a).subscribe(()=>this.reload())} removeAspect(a:FormAspect){this.api.archiveFormAspect(a.id).subscribe(()=>this.reload())}
- addQuestion(a:FormAspect){this.api.createQuestion(a.id,{title:'Nueva pregunta',question_type:'radio',required:true,is_scored:true}).subscribe(()=>this.reload())} saveQuestion(q:FormQuestion){this.api.updateQuestion(q.id,q).subscribe(()=>{this.message.set('Pregunta guardada');this.reload()})} removeQuestion(q:FormQuestion){this.api.archiveQuestion(q.id).subscribe(()=>this.reload())} move(q:FormQuestion,d:'up'|'down'){this.api.moveQuestion(q.id,d).subscribe(()=>this.reload())} addOption(q:FormQuestion){q.options.push({label:'',value:String(q.options.length+1),score:null})}
+    private api = inject(ApiService);
+
+    tab = signal<'courses' | 'users' | 'forms'>('courses'); courses = signal<Course[]>([]);
+
+    users = signal<User[]>([]); questionnaires = signal<Questionnaire[]>([]);
+
+    selectedForm = signal<Questionnaire | null>(null); version = signal<FormVersion | null>(null);
+    message = signal('');
+    assigned = signal<Record<number, number[]>>({});
+
+    tutors = () => this.users().filter(u => (u.role === 'tutor' || u.role === 'admin') && u.is_active);
+
+    activeCourses = () => this.courses().filter(c => c.is_active);
+    inactiveCourses = () => this.courses().filter(c => !c.is_active);
+    activeForms = () => this.questionnaires().filter(f => !f.is_archived);
+    archivedForms = () => this.questionnaires().filter(f => f.is_archived);
+    newCourse: Partial<Course> = { name: '', academic_year: '2026-2027', level: 1, tutor_id: null }; newForm: Partial<Questionnaire> = { name: '', description: '', level: 1 };
+    newUser: { name: string; email: string; password: string; role: 'student' | 'tutor' | 'admin' } = { name: '', email: '', password: '', role: 'student' };
+
+    ngOnInit() {
+        this.reload()
+    }
+    reload() {
+        this.api.adminCourses().subscribe(v => { this.courses.set(v); this.assigned.set(Object.fromEntries(v.map(c => [c.id, c.questionnaire_ids || []]))) });
+        this.api.users().subscribe(v => this.users.set(v));
+        this.api.questionnaires().subscribe(v => { this.questionnaires.set(v); const current = this.selectedForm(); if (current) { const fresh = v.find(x => x.id === current.id) || null; this.selectedForm.set(fresh); if (this.version()) { this.version.set(fresh?.versions?.find(x => x.id === this.version()!.id) || null) } } })
+    }
+    addCourse() {
+        this.api.createCourse(this.newCourse).subscribe(() => this.reload())
+    }
+    assignTutor(c: Course, id: number | null) {
+        this.api.updateCourse(c.id, { tutor_id: id }).subscribe(() => this.reload())
+    }
+    deleteCourse(c: Course) {
+        this.api.deleteCourse(c.id).subscribe({
+            next: () => {
+                this.message.set('Curso eliminado.'); this.reload()
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo eliminar el curso')
+        })
+    }
+    restoreCourse(c: Course) {
+        this.api.updateCourse(c.id, { is_active: true }).subscribe({
+            next: () => {
+                this.message.set('Curso restaurado.'); this.reload()
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo restaurar el curso')
+        })
+    }
+    permanentlyDeleteCourse(c: Course) {
+        if (!confirm(`¿Borrar definitivamente el curso ${c.name} y todos los formularios completados en él? Esta acción no se puede deshacer.`)) return;
+        this.api.permanentlyDeleteCourse(c.id).subscribe({
+            next: () => {
+                this.message.set('Curso y formularios completados borrados definitivamente.');
+                this.reload()
+            }, error: e => this.message.set(e.error?.error || 'No se pudo borrar definitivamente el curso')
+        })
+    }
+    addUser() {
+        this.api.createUser(this.newUser).subscribe({
+            next: () => {
+                this.newUser = { name: '', email: '', password: '', role: 'student' }; this.message.set('Usuario creado.');
+                this.reload()
+            }, error: e => this.message.set(e.error?.error || 'No se pudo crear el usuario')
+        })
+    }
+    activateUser(u: User) {
+        this.api.updateUser(u.id, { is_verified: true, is_active: true }).subscribe({
+            next: () => {
+                this.message.set('Cuenta activada sin confirmación por correo.'); this.reload()
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo activar la cuenta')
+        })
+    }
+    updateUser(u: User, d: Partial<User>) {
+        this.api.updateUser(u.id, d).subscribe({
+            next: () => {
+                this.message.set('Usuario actualizado.');
+                this.reload()
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo actualizar el usuario')
+        })
+    }
+    deleteUser(u: User) {
+        this.api.deleteUser(u.id).subscribe({
+            next: () => {
+                this.message.set('Usuario desactivado.'); this.reload()
+            }
+            ,
+            error: e => this.message.set(e.error?.error || 'No se pudo eliminar el usuario')
+        })
+    }
+    permanentlyDeleteUser(u: User) {
+        if (!confirm(`¿Borrar definitivamente a ${u.name} y todos sus formularios completados? Esta acción no se puede deshacer.`))
+            return;
+        this.api.permanentlyDeleteUser(u.id).subscribe({
+            next: () => {
+                this.message.set('Usuario y formularios completados borrados definitivamente.');
+                this.reload()
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo borrar definitivamente el usuario')
+        })
+    }
+    formsForLevel(
+        level: number) { return this.questionnaires().filter(f => f.level === level && !f.is_archived && f.published_version_id) }
+    isAssigned(c: Course, f: Questionnaire) {
+        return (this.assigned()[c.id] || []).includes(f.id)
+    }
+    toggleAssignment(c: Course, f: Questionnaire) {
+        const ids = new Set(this.assigned()[c.id] || []); ids.has(f.id) ? ids.delete(f.id) : ids.add(f.id); this.api.assignForms(c.id, [...ids]).subscribe(() => this.assigned.update(v => ({ ...v, [c.id]: [...ids] })))
+    }
+    addForm() {
+        this.api.createQuestionnaire(this.newForm).subscribe(f => { this.newForm = { name: '', description: '', level: 1 }; this.reload(); this.selectForm(f) })
+    }
+    selectForm(f: Questionnaire) {
+        this.selectedForm.set(f);
+        this.version.set(f.versions?.find(v => v.status === 'draft') || f.versions?.at(-1) || null)
+    }
+    duplicateForm(f: Questionnaire) {
+        const name = prompt('Nombre del nuevo formulario', `Copia de ${f.name}`)?.trim();
+        if (!name) return; this.api.duplicateQuestionnaire(f.id, name).subscribe({
+            next: copy => {
+                this.message.set('Formulario duplicado. La copia está en borrador y ya puedes modificarla.');
+                this.reload();
+                this.selectForm(copy)
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo duplicar el formulario')
+        })
+    }
+    archiveForm(f: Questionnaire) {
+        this.api.archiveQuestionnaire(f.id).subscribe(() => {
+            this.message.set('Formulario eliminado. Puedes restaurarlo desde la lista de eliminados.');
+            this.selectedForm.set(null); this.version.set(null); this.reload()
+        })
+    }
+    restoreForm(f: Questionnaire) {
+        this.api.restoreQuestionnaire(f.id).subscribe(() => {
+            this.message.set('Formulario restaurado.');
+            this.reload()
+        })
+    }
+    permanentlyDeleteForm(f: Questionnaire) {
+        if (!confirm(`¿Borrar definitivamente ${f.name} y todos sus formularios completados? Esta acción no se puede deshacer.`))
+            return;
+        this.api.permanentlyDeleteQuestionnaire(f.id).subscribe({
+            next: () => {
+                this.message.set('Formulario y respuestas borrados definitivamente.');
+                this.reload()
+            },
+            error: e => this.message.set(e.error?.error || 'No se pudo borrar definitivamente el formulario')
+        })
+    }
+    newVersion(f: Questionnaire) {
+        this.api.createVersion(f.id, f.published_version_id || undefined).subscribe(v => {
+            this.reload();
+            this.version.set(v)
+        })
+    }
+    publish(v: FormVersion) {
+        this.api.publishVersion(v.id).subscribe(() => {
+            this.message.set('Versión publicada. Los intentos anteriores conservan su estructura.');
+            this.reload()
+        })
+    }
+    addAspect(v: FormVersion) {
+        this.api.createFormAspect(v.id, 'Nuevo aspecto').subscribe(() => this.reload())
+    }
+
+    saveAspect(a: FormAspect) {
+        this.api.updateFormAspect(a.id, a).subscribe(() => this.reload())
+    }
+    removeAspect(a: FormAspect) { this.api.archiveFormAspect(a.id).subscribe(() => this.reload()) }
+    addQuestion(a: FormAspect) {
+
+        this.api.createQuestion(a.id, { title: 'Nueva pregunta', question_type: 'radio', required: true, is_scored: true }).subscribe(() => this.reload())
+    }
+    saveQuestion(q: FormQuestion) { this.api.updateQuestion(q.id, q).subscribe(() => { this.message.set('Pregunta guardada'); this.reload() }) }
+    removeQuestion(q: FormQuestion) {
+        this.api.archiveQuestion(q.id).subscribe(() => this.reload())
+    }
+    move(q: FormQuestion, d: 'up' | 'down') {
+        this.api.moveQuestion(q.id, d).subscribe(() => this.reload())
+    }
+    addOption(q: FormQuestion) {
+        q.options.push({ label: '', value: String(q.options.length + 1), score: null })
+    }
 }

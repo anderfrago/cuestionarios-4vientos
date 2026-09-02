@@ -2,9 +2,40 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
-@Component({standalone:true,imports:[FormsModule],template:`<div class="container py-5"><div class="row justify-content-center"><div class="col-lg-5"><div class="card shadow-sm p-4 p-md-5"><p class="text-uppercase text-primary fw-semibold small">Centro Integrado Cuatrovientos</p><h1 class="h2">Portal de cuestionarios</h1><p class="text-secondary">Accede para consultar y completar los formularios asignados a tu curso.</p>
-<div class="btn-group w-100 my-3"><button class="btn" [class.btn-primary]="mode()==='login'" [class.btn-outline-primary]="mode()!=='login'" (click)="mode.set('login')">Acceder</button><button class="btn" [class.btn-primary]="mode()==='register'" [class.btn-outline-primary]="mode()!=='register'" (click)="mode.set('register')">Crear cuenta</button></div>
-<a class="btn btn-outline-dark w-100 mb-3" href="/api/auth/google">Continuar con Google</a><div class="text-center small text-secondary mb-3">o usa tu correo</div><form (ngSubmit)="submit()">@if(mode()==='register'){<label class="form-label">Nombre</label><input class="form-control mb-3" name="name" [(ngModel)]="name" required>}
-<label class="form-label">Correo electrónico</label><input class="form-control mb-3" name="email" type="email" [(ngModel)]="email" required><label class="form-label">Contraseña</label><input class="form-control mb-3" name="password" type="password" [(ngModel)]="password" minlength="8" required>
-@if(message()){<div class="alert" [class.alert-danger]="error()" [class.alert-success]="!error()">{{message()}}</div>}<button class="btn btn-primary w-100" [disabled]="busy()">{{busy()?'Procesando…':mode()==='login'?'Entrar':'Registrarme'}}</button></form><p class="small text-secondary mt-3 mb-0">Al continuar aceptas la <a href="https://cuatrovientos.org/rgpd/" target="_blank">política de privacidad</a>.</p></div></div></div></div>`})
-export class LoginComponent { private api=inject(ApiService);private router=inject(Router);private route=inject(ActivatedRoute);mode=signal<'login'|'register'>('login');busy=signal(false);message=signal('');error=signal(false);name='';email='';password='';constructor(){const token=this.route.snapshot.queryParamMap.get('token');if(token){localStorage.setItem('token',token);this.api.loadMe().subscribe(()=>this.router.navigate(['/panel']))}}submit(){this.busy.set(true);this.message.set('');const obs=this.mode()==='login'?this.api.login(this.email,this.password):this.api.register({name:this.name,email:this.email,password:this.password});obs.subscribe({next:()=>{this.busy.set(false);if(this.mode()==='login')this.router.navigate(['/panel']);else this.message.set('Cuenta creada. Revisa tu correo para verificarla.')},error:e=>{this.busy.set(false);this.error.set(true);this.message.set(e.error?.error||'No se pudo completar la operación')}})} }
+@Component({
+    standalone: true,
+    imports: [FormsModule],
+    templateUrl: './login.component.html'
+})
+export class LoginComponent {
+    private api = inject(ApiService);
+    private router = inject(Router);
+    private route = inject(ActivatedRoute);
+    mode = signal<'login' | 'register'>('login');
+    busy = signal(false); message = signal('');
+    error = signal(false);
+    name = '';
+    email = '';
+    password = '';
+
+    constructor() {
+        const token = this.route.snapshot.queryParamMap.get('token');
+        if (token) {
+            localStorage.setItem('token', token);
+            this.api.loadMe().subscribe(() => this.router.navigate(['/panel']))
+        }
+    } submit() {
+        this.busy.set(true);
+        this.message.set(''); const obs = this.mode() === 'login' ? this.api.login(this.email, this.password) : this.api.register({ name: this.name, email: this.email, password: this.password });
+        obs.subscribe({
+            next: () => {
+                this.busy.set(false);
+                if (this.mode() === 'login') this.router.navigate(['/panel']);
+                else this.message.set('Cuenta creada. Revisa tu correo para verificarla.')
+            }, error: e => {
+                this.busy.set(false); this.error.set(true);
+                this.message.set(e.error?.error || 'No se pudo completar la operación')
+            }
+        })
+    }
+}
