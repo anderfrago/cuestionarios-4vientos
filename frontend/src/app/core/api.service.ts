@@ -39,6 +39,7 @@ export class ApiService {
   createQuestionnaire(data:Partial<Questionnaire>) { return this.http.post<Questionnaire>('/api/admin/questionnaires',data); }
   updateQuestionnaire(id:number,data:Partial<Questionnaire>) { return this.http.put<Questionnaire>(`/api/admin/questionnaires/${id}`,data); }
   archiveQuestionnaire(id:number) { return this.http.delete(`/api/admin/questionnaires/${id}`); }
+  permanentlyDeleteQuestionnaire(id:number) { return this.http.delete(`/api/admin/questionnaires/${id}?permanent=true`); }
   restoreQuestionnaire(id:number) { return this.http.put<Questionnaire>(`/api/admin/questionnaires/${id}`,{is_archived:false}); }
   createVersion(id:number,source_version_id?:number) { return this.http.post<FormVersion>(`/api/admin/questionnaires/${id}/versions`,{source_version_id}); }
   publishVersion(id:number) { return this.http.post<FormVersion>(`/api/admin/versions/${id}/publish`,{}); }

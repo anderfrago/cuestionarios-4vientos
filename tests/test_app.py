@@ -1,7 +1,7 @@
 import pytest
 from backend import create_app
 from backend.extensions import db
-from backend.models import Course, Enrollment, User
+from backend.models import Attempt, Course, Enrollment, FormAttempt, Questionnaire, User
 
 
 @pytest.fixture()
@@ -100,6 +100,13 @@ def test_student_joins_by_code_and_submits_complete_questionnaire(client, app):
     response = client.post(f'/api/courses/{course["id"]}/attempts', headers=auth(student_token), json={"answers":answers})
     assert response.status_code == 201
     assert response.get_json()["results"]
+    assert client.delete(f'/api/admin/courses/{course["id"]}', headers=auth(admin_token)).status_code == 204
+    assert client.delete(f'/api/admin/courses/{course["id"]}?permanent=true',
+                         headers=auth(admin_token)).status_code == 204
+    with app.app_context():
+        assert db.session.get(Course, course["id"]) is None
+        assert Attempt.query.filter_by(course_id=course["id"]).count() == 0
+        assert Enrollment.query.filter_by(course_id=course["id"]).count() == 0
 
 
 def test_tutor_cannot_see_another_course(client, app):
@@ -153,3 +160,9 @@ def test_versioned_form_alert_and_exports(client, tmp_path):
     draft = client.post(f'/api/admin/questionnaires/{form["id"]}/versions', headers=auth(admin),
         json={"source_version_id":version_id}).get_json()
     assert draft["version"] == 2 and draft["status"] == "draft"
+    assert client.delete(f'/api/admin/questionnaires/{form["id"]}', headers=auth(admin)).status_code == 204
+    assert client.delete(f'/api/admin/questionnaires/{form["id"]}?permanent=true',
+                         headers=auth(admin)).status_code == 204
+    with client.application.app_context():
+        assert db.session.get(Questionnaire, form["id"]) is None
+        assert FormAttempt.query.filter_by(version_id=version_id).count() == 0

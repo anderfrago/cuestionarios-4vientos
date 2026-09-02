@@ -29,6 +29,23 @@ def promote_configured_admin(user):
     return False
 
 
+def delete_form_attempts(query):
+    """Delete versioned attempts together with alerts and responses."""
+    attempts = query.all()
+    if not attempts:
+        return
+    attempt_ids = [attempt.id for attempt in attempts]
+    CriticalAlert.query.filter(CriticalAlert.attempt_id.in_(attempt_ids)).delete(
+        synchronize_session=False)
+    for attempt in attempts:
+        db.session.delete(attempt)
+
+
+def delete_legacy_attempts(query):
+    for attempt in query.all():
+        db.session.delete(attempt)
+
+
 def allowed_course(user, course):
     return user.role == "admin" or (user.role == "tutor" and course.tutor_id == user.id)
 
@@ -244,13 +261,9 @@ def admin_course(course_id):
         if request.args.get("permanent", "false").lower() == "true":
             if course.is_active:
                 return error("Primero debes eliminar el curso", 409)
-            has_history = (
-                Enrollment.query.filter_by(course_id=course.id).first()
-                or Attempt.query.filter_by(course_id=course.id).first()
-                or FormAttempt.query.filter_by(course_id=course.id).first()
-            )
-            if has_history:
-                return error("No se puede borrar definitivamente: el curso tiene matrículas o respuestas asociadas", 409)
+            delete_form_attempts(FormAttempt.query.filter_by(course_id=course.id))
+            delete_legacy_attempts(Attempt.query.filter_by(course_id=course.id))
+            Enrollment.query.filter_by(course_id=course.id).delete()
             CourseQuestionnaire.query.filter_by(course_id=course.id).delete()
             db.session.delete(course)
             db.session.commit()
@@ -294,15 +307,11 @@ def admin_user(user_id):
         if request.args.get("permanent", "false").lower() == "true":
             if user.is_active:
                 return error("Primero debes desactivar el usuario", 409)
-            has_history = (
-                Course.query.filter_by(tutor_id=user.id).first()
-                or Enrollment.query.filter_by(student_id=user.id).first()
-                or Attempt.query.filter_by(student_id=user.id).first()
-                or FormAttempt.query.filter_by(student_id=user.id).first()
-                or CriticalAlert.query.filter_by(reviewed_by_id=user.id).first()
-            )
-            if has_history:
-                return error("No se puede borrar definitivamente: el usuario tiene cursos, matrículas o respuestas asociadas", 409)
+            delete_form_attempts(FormAttempt.query.filter_by(student_id=user.id))
+            delete_legacy_attempts(Attempt.query.filter_by(student_id=user.id))
+            Enrollment.query.filter_by(student_id=user.id).delete()
+            Course.query.filter_by(tutor_id=user.id).update({"tutor_id": None})
+            CriticalAlert.query.filter_by(reviewed_by_id=user.id).update({"reviewed_by_id": None})
             db.session.delete(user)
             db.session.commit()
             return "", 204

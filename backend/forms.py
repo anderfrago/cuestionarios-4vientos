@@ -16,7 +16,7 @@ from .extensions import db
 from .models import (Course, CourseQuestionnaire, CriticalAlert, Enrollment, FormAspect,
                      FormAttempt, FormResponse, Question, Questionnaire, Attempt,
                      QuestionnaireVersion, QuestionOption, QuestionRow)
-from .routes import attempt_dict as legacy_attempt_dict
+from .routes import attempt_dict as legacy_attempt_dict, delete_form_attempts
 
 forms = Blueprint("forms", __name__, url_prefix="/api")
 QUESTION_TYPES = {"yes_no", "select", "text", "radio", "matrix", "number_matrix"}
@@ -121,6 +121,16 @@ def questionnaire_admin(questionnaire_id):
     questionnaire = Questionnaire.query.get_or_404(questionnaire_id)
     if request.method == "GET": return questionnaire.as_dict(include_versions=True)
     if request.method == "DELETE":
+        if request.args.get("permanent", "false").lower() == "true":
+            if not questionnaire.is_archived:
+                return fail("Primero debes eliminar el formulario", 409)
+            version_ids = [version.id for version in questionnaire.versions]
+            if version_ids:
+                delete_form_attempts(FormAttempt.query.filter(FormAttempt.version_id.in_(version_ids)))
+            CourseQuestionnaire.query.filter_by(questionnaire_id=questionnaire.id).delete()
+            db.session.delete(questionnaire)
+            db.session.commit()
+            return "", 204
         questionnaire.is_archived = True; db.session.commit(); return "", 204
     body = data()
     for key in ("name", "description", "level", "is_archived"):
