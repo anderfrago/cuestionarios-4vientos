@@ -32,6 +32,14 @@ def test_registration_login_and_admin_role(client):
     assert register(client, "admin@example.com").status_code == 201
     token = login(client, "admin@example.com")
     assert client.get("/api/me", headers=auth(token)).get_json()["user"]["role"] == "admin"
+    forms = client.get("/api/admin/questionnaires", headers=auth(token)).get_json()
+    names = {form["name"] for form in forms}
+    assert "Ficha Alumnado Prácticas" in names
+    assert "Cuestionario de satisfacción de 1º" in names
+    assert "Cuestionario de satisfacción de 2º" in names
+    satisfaction = next(form for form in forms if form["name"] == "Cuestionario de satisfacción de 2º")
+    matrix = satisfaction["versions"][0]["aspects"][0]["questions"][0]
+    assert [option["label"] for option in matrix["options"]] == ["NP"] + [str(v) for v in range(1, 11)]
 
 
 def test_admin_user_crud_and_safe_form_deletion(client):
@@ -125,7 +133,7 @@ def test_versioned_form_alert_and_exports(client, tmp_path):
     course = client.post("/api/admin/courses", headers=auth(admin),
         json={"name":"DAW1","academic_year":"2026-2027","level":1}).get_json()
     forms = client.get("/api/admin/questionnaires", headers=auth(admin)).get_json()
-    form = next(f for f in forms if f["level"] == 1)
+    form = next(f for f in forms if f["name"] == "Cuestionario inicial de 1º")
     assert client.put(f'/api/admin/courses/{course["id"]}/questionnaires', headers=auth(admin),
         json={"questionnaire_ids":[form["id"]]}).status_code == 200
     client.post("/api/courses/join", headers=auth(student), json={"code":course["invite_code"]})

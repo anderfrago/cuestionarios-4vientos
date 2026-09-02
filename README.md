@@ -1,6 +1,6 @@
-# Autopercepción Cuatrovientos
+# Cuestionarios Cuatrovientos
 
-Aplicación Flask + Angular 21 para cuestionarios de autopercepción de primero y segundo. Incluye roles de alumnado, tutoría y administración; invitaciones por código; formularios versionados y editables; múltiples intentos; alertas protegidas; análisis individual/grupal y exportación Excel/PDF.
+Aplicación Flask + Angular 21 para gestionar los distintos cuestionarios del centro. Incluye roles de alumnado, tutoría y administración; invitaciones por código; formularios versionados y editables; múltiples intentos; alertas protegidas; análisis individual/grupal y exportación Excel/PDF.
 
 ## Desarrollo local
 

@@ -47,6 +47,7 @@ def seed_questionnaires():
                                         reverse_scored=negative))
     if not Questionnaire.query.count():
         _seed_editable_forms()
+    _seed_center_forms()
     db.session.commit()
 
 
@@ -81,10 +82,10 @@ DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Doming
 
 
 def _question(aspect, title, qtype, options=None, rows=None, scored=True, required=True,
-              other=False, critical=False, critical_min=None, order=1):
+              other=False, critical=False, critical_min=None, order=1, help_text=""):
     q = Question(aspect_id=aspect.id, title=title, question_type=qtype, is_scored=scored,
         required=required, allow_other=other, is_critical=critical,
-        critical_score_min=critical_min, order=order)
+        critical_score_min=critical_min, order=order, help_text=help_text)
     db.session.add(q); db.session.flush()
     for index, option in enumerate(options or [], 1):
         label, score = option if isinstance(option, tuple) else (option, None)
@@ -136,3 +137,88 @@ def _seed_editable_forms():
                 "Carné falso", "Agradecidos", "Castigos y amenazas", "Exitosa mediana dotación", "Vividores"]
             _question(habits, "Señala a qué categoría de estudiante crees que perteneces",
                       "radio", categories, scored=False, other=True, order=2)
+
+
+PRACTICE_CYCLES = [
+    "TL OL-V - CS Transporte y Logística (Online - Virtual)",
+    "TL - CS Transporte y Logística",
+    "AF - CS Administración y Finanzas",
+    "CI - CS Comercio Internacional",
+    "GVEC - CS Gestión de Ventas y Espacios Comerciales",
+    "DAM - CS Desarrollo Aplicaciones Multiplataforma",
+    "ASIR - CS Administración Sistemas Informáticos",
+    "GA - CM Gestión Administrativa",
+    "AC - CM Actividades Comerciales",
+    "SMR - CM Sistemas Microinformáticos y Redes",
+    "GB - Grado Básico Servicios Comerciales",
+    "CFP Especial - Auxiliar en Servicios Administrativos y Generales",
+]
+PRACTICE_STATUS = [
+    "Exención / Convalidación", "Prácticas aquí", "Prácticas Erasmus", "Renunciar",
+]
+SATISFACTION_ROWS = [
+    "Conocimientos", "Materiales y recursos", "Metodología", "Evaluación",
+    "Relación con el/la profesor/a", "Tu implicación", "Explicación de la materia",
+]
+SATISFACTION_EXPLANATION = """Valora tu grado de satisfacción respecto a los módulos y al profesorado.
+La escala es 1 = nada satisfecho y 10 = totalmente satisfecho. Utiliza NP cuando ese profesor o
+profesora no te haya dado clase en el módulo. Ten en cuenta la cantidad y calidad de los conocimientos;
+los materiales y recursos; la metodología; la claridad de la evaluación; la relación con el profesorado;
+tu propia implicación; y el dominio y la explicación de la materia."""
+
+
+def _published_form(name, level, description, aspect_name, aspect_description=""):
+    if Questionnaire.query.filter_by(name=name).first():
+        return None, None
+    form = Questionnaire(name=name, level=level, description=description)
+    db.session.add(form); db.session.flush()
+    version = QuestionnaireVersion(questionnaire_id=form.id, version=1, status="published",
+                                   published_at=now())
+    db.session.add(version); db.session.flush()
+    aspect = FormAspect(version_id=version.id, name=aspect_name, description=aspect_description,
+                        order=1)
+    db.session.add(aspect); db.session.flush()
+    return form, aspect
+
+
+def _seed_center_forms():
+    _, practice = _published_form(
+        "Ficha Alumnado Prácticas", 2,
+        "Recogida de datos del alumnado y situación prevista para las prácticas.",
+        "Datos para prácticas",
+        "Completa los datos tal y como figuran en tu DNI, NIE o pasaporte.",
+    )
+    if practice:
+        fields = [
+            ("Nombre", "Indica el nombre tal y como figura en el DNI o pasaporte.", True),
+            ("1º Apellido", "Indica el primer apellido tal y como figura en el DNI o pasaporte.", True),
+            ("2º Apellido", "Indica el segundo apellido tal y como figura en el DNI o pasaporte.", True),
+            ("Nº NIF o NIE", "Número con letra mayúscula, sin puntos, espacios ni guiones. Ej.: 44687925Y. Si utilizas pasaporte, deja este campo vacío.", False),
+            ("Nº Pasaporte", "Rellénalo si no has indicado NIF o NIE.", False),
+            ("Móvil", "Sin espacios, comas ni caracteres especiales.", True),
+            ("Email", "Correo del alumno/a. No se admiten direcciones @educacion.navarra.es.", True),
+        ]
+        for order, (title, help_text, required) in enumerate(fields, 1):
+            _question(practice, title, "text", scored=False, required=required,
+                      order=order, help_text=help_text)
+        _question(practice, "Ciclo", "select", PRACTICE_CYCLES, scored=False, required=True,
+                  order=8, help_text="Indica el curso y ciclo que estás estudiando.")
+        situation_help = ("Para solicitar exención debes acreditar un año de experiencia en el sector y "
+            "entregar en Secretaría la vida laboral, el certificado de empresa y la solicitud de exención. "
+            "Para renunciar, entrega en Secretaría la solicitud de renuncia.")
+        _question(practice, "Situación prácticas", "radio", PRACTICE_STATUS, scored=False,
+                  required=True, order=9, help_text=situation_help)
+
+    satisfaction_options = [("NP", None)] + [(str(value), value) for value in range(1, 11)]
+    for level in (1, 2):
+        _, satisfaction = _published_form(
+            f"Cuestionario de satisfacción de {level}º", level,
+            "Plantilla editable para valorar los módulos y el profesorado del curso.",
+            "Módulos del ciclo y profesorado", SATISFACTION_EXPLANATION,
+        )
+        if satisfaction:
+            title = ("Iban Sarria - Administración de Sistemas Operativos"
+                     if level == 2 else "[Docente] - [Módulo]")
+            _question(satisfaction, title, "matrix", satisfaction_options,
+                      SATISFACTION_ROWS, scored=True, required=True, order=1,
+                      help_text="Selecciona una valoración para cada aspecto. Usa NP si no procede.")

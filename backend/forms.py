@@ -296,7 +296,7 @@ def submit_form(course_id, version_id):
                 str(by_key[key].get("text_value", "")).strip()) for key in keys):
             return fail(f"Falta responder: {question.title}")
     attempt = FormAttempt(student_id=user.id, course_id=course.id, version_id=version.id,
-        encouragement="Gracias por escucharte. Reconocer cómo estás es el primer paso para seguir creciendo.")
+        encouragement="Gracias. Tus respuestas se han guardado correctamente.")
     db.session.add(attempt); db.session.flush(); alerts = []
     for raw in submitted:
         question = db.session.get(Question, int(raw["question_id"]))
@@ -439,7 +439,7 @@ def export_pdf(course_id):
     course, user = Course.query.get_or_404(course_id), current_user()
     if not can_view_course(user, course): abort(403)
     legacy = Attempt.query.filter_by(course_id=course.id).order_by(Attempt.created_at).all()
-    out = pdf_document(course, export_attempts(course), "Informe de autopercepción del curso", legacy)
+    out = pdf_document(course, export_attempts(course), "Informe de cuestionarios del curso", legacy)
     return send_file(out, as_attachment=True, download_name=f"{course.name}-informe.pdf", mimetype="application/pdf")
 
 
@@ -448,5 +448,5 @@ def export_pdf(course_id):
 def export_attempt_pdf(attempt_id):
     attempt, user = FormAttempt.query.get_or_404(attempt_id), current_user()
     if not can_view_course(user, attempt.course): abort(403)
-    out = pdf_document(attempt.course, [attempt], "Ficha individual de autopercepción")
+    out = pdf_document(attempt.course, [attempt], "Ficha individual del cuestionario")
     return send_file(out, as_attachment=True, download_name=f"intento-{attempt.id}.pdf", mimetype="application/pdf")
