@@ -1,0 +1,19 @@
+<header class="institutional-header">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container"><a class="navbar-brand" routerLink="/panel" aria-label="Cuestionarios Cuatrovientos"><img
+                    src="/images/cuatrovientos-logo.png" alt="Centro Integrado Cuatrovientos" width="300"
+                    height="115"><span class="brand-section">Cuestionarios</span></a>
+            @if(api.loggedIn()){<div class="d-flex align-items-center gap-2 gap-md-3"><span
+                    class="user-name small d-none d-md-inline">{{api.user()?.name}}</span>@if(api.role()==='admin'){<a
+                    class="btn btn-secondary btn-sm" routerLink="/administracion">Administración</a>}<button
+                    class="btn btn-primary btn-sm" (click)="logout()">Salir</button></div>}</div>
+    </nav>
+</header>
+<main class="app-content"><router-outlet /></main>
+<footer class="site-footer mt-5">
+    <div class="container d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+        <div>© 2026 Ander Frago</div>
+        <div>Centro Integrado Cuatrovientos · <a href="https://cuatrovientos.org/rgpd/" target="_blank"
+                rel="noopener">Privacidad y RGPD</a></div>
+    </div>
+</footer>
