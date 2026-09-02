@@ -96,6 +96,14 @@ def test_admin_user_crud_and_safe_form_deletion(client):
                           json={"is_archived": False})
     assert restored.status_code == 200
     assert restored.get_json()["is_archived"] is False
+    duplicate = client.post(f'/api/admin/questionnaires/{form["id"]}/duplicate',
+                            headers=auth(admin), json={"name": "Copia editable"})
+    assert duplicate.status_code == 201
+    copied = duplicate.get_json()
+    assert copied["name"] == "Copia editable"
+    assert copied["published_version_id"] is None
+    assert copied["versions"][0]["status"] == "draft"
+    assert len(copied["versions"][0]["aspects"]) == len(form["versions"][0]["aspects"])
 
 
 def test_student_joins_by_code_and_submits_complete_questionnaire(client, app):

@@ -150,6 +150,29 @@ def create_version(questionnaire_id):
     return version.as_dict(), 201
 
 
+@forms.post("/admin/questionnaires/<int:questionnaire_id>/duplicate")
+@roles_required("admin")
+def duplicate_questionnaire(questionnaire_id):
+    original = Questionnaire.query.get_or_404(questionnaire_id)
+    body = data()
+    name = body.get("name", "").strip()
+    if not name:
+        return fail("El nombre de la copia es obligatorio")
+    if Questionnaire.query.filter(db.func.lower(Questionnaire.name) == name.lower()).first():
+        return fail("Ya existe un formulario con ese nombre", 409)
+    source = original.published_version or (
+        original.versions[-1] if original.versions else None
+    )
+    if not source:
+        return fail("El formulario original no tiene ninguna versión para copiar", 409)
+    duplicate = Questionnaire(name=name, description=original.description, level=original.level)
+    db.session.add(duplicate)
+    db.session.flush()
+    copy_version(source, duplicate)
+    db.session.commit()
+    return duplicate.as_dict(include_versions=True), 201
+
+
 @forms.post("/admin/versions/<int:version_id>/publish")
 @roles_required("admin")
 def publish_version(version_id):

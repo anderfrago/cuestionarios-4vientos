@@ -42,6 +42,7 @@ export class ApiService {
   permanentlyDeleteQuestionnaire(id:number) { return this.http.delete(`/api/admin/questionnaires/${id}?permanent=true`); }
   restoreQuestionnaire(id:number) { return this.http.put<Questionnaire>(`/api/admin/questionnaires/${id}`,{is_archived:false}); }
   createVersion(id:number,source_version_id?:number) { return this.http.post<FormVersion>(`/api/admin/questionnaires/${id}/versions`,{source_version_id}); }
+  duplicateQuestionnaire(id:number,name:string) { return this.http.post<Questionnaire>(`/api/admin/questionnaires/${id}/duplicate`,{name}); }
   publishVersion(id:number) { return this.http.post<FormVersion>(`/api/admin/versions/${id}/publish`,{}); }
   createFormAspect(versionId:number,name:string) { return this.http.post<FormAspect>(`/api/admin/versions/${versionId}/aspects`,{name}); }
   updateFormAspect(id:number,data:Partial<FormAspect>) { return this.http.put<FormAspect>(`/api/admin/form-aspects/${id}`,data); }
